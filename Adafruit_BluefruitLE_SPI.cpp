@@ -41,6 +41,12 @@
   #define min(a,b) ((a) < (b) ? (a) : (b))
 #endif
 
+// according to the "spec" there should be a 100ms delay after the enagble!
+// NOTE: removing the delayM means I have to remove the other location that had an extra delay
+#define SPI_CS_ENABLE()           digitalWrite(m_cs_pin, LOW); delayMicroseconds(100)
+#define SPI_CS_DISABLE()          digitalWrite(m_cs_pin, HIGH)
+
+
 
 SPISettings bluefruitSPI(4000000, MSBFIRST, SPI_MODE0);
 
@@ -156,7 +162,7 @@ bool Adafruit_BluefruitLE_SPI::begin(boolean v)
   }
 
   // Bluefruit takes 1 second to reboot
-  delay(1000);
+  delay(1000); // ugh!
 
   return isOK;
 }
@@ -230,7 +236,8 @@ bool Adafruit_BluefruitLE_SPI::sendInitializePattern(void)
 /******************************************************************************/
 bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, uint8_t count, uint8_t more_data)
 {
-  // flush old response before sending the new command
+  Serial.println("\r\n [sendPacket]");
+ // flush old response before sending the new command
   if (more_data == 0) flush();
 
   sdepMsgCommand_t msgCmd;
@@ -245,8 +252,7 @@ bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, 
   if ( buf != NULL && count > 0) memcpy(msgCmd.payload, buf, count);
 
   // Starting SPI transaction
-  if (m_sck_pin == -1)
-    SPI.beginTransaction(bluefruitSPI);
+  SPI.beginTransaction(bluefruitSPI);
 
   SPI_CS_ENABLE();
 
@@ -255,9 +261,10 @@ bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, 
   // Bluefruit may not be ready
   while ( ( spixfer(msgCmd.header.msg_type) == SPI_IGNORED_BYTE ) && !tt.expired() )
   {
+//    Serial.println("delay, really??");
     // Disable & Re-enable CS with a bit of delay for Bluefruit to ready itself
     SPI_CS_DISABLE();
-    delayMicroseconds(SPI_DEFAULT_DELAY_US);
+//    delayMicroseconds(SPI_DEFAULT_DELAY_US); // delay now built into enable! if I remove the
     SPI_CS_ENABLE();
   }
 
@@ -266,11 +273,12 @@ bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, 
   {
     // transfer the rest of the data
     spixfer((void*) (((uint8_t*)&msgCmd) +1), sizeof(sdepMsgHeader_t)+count-1);
+  } else {
+    Serial.println("ERROR sendPacket");
   }
 
   SPI_CS_DISABLE();
-  if (m_sck_pin == -1)
-    SPI.endTransaction();
+  SPI.endTransaction();
 
   return result;
 }
@@ -301,14 +309,7 @@ size_t Adafruit_BluefruitLE_SPI::write(uint8_t c)
   {
     if (m_tx_count > 0)
     {
-      // +++ command to switch mode
-      if ( memcmp(m_tx_buffer, "+++", 3) == 0)
-      {
-        simulateSwitchMode();
-      }else
-      {
-        sendPacket(SDEP_CMDTYPE_AT_WRAPPER, m_tx_buffer, m_tx_count, 0);
-      }
+      sendPacket(SDEP_CMDTYPE_AT_WRAPPER, m_tx_buffer, m_tx_count, 0);
       m_tx_count = 0;
     }
   }
@@ -340,24 +341,16 @@ size_t Adafruit_BluefruitLE_SPI::write(const uint8_t *buf, size_t size)
 {
   if ( _mode == BLUEFRUIT_MODE_DATA )
   {
-    if ((size >= 3) &&
-        !memcmp(buf, "+++", 3) &&
-        !(size > 3 && buf[3] != '\r' && buf[3] != '\n') )
+    while(size)
     {
-      simulateSwitchMode();
-    }else
-    {
-      while(size)
-      {
-        size_t len = min(size, SDEP_MAX_PACKETSIZE);
-        size -= len;
+      size_t len = min(size, SDEP_MAX_PACKETSIZE);
+      size -= len;
 
-        sendPacket(SDEP_CMDTYPE_BLE_UARTTX, buf, (uint8_t) len, size ? 1 : 0);
-        buf += len;
-      }
-
-      getResponse();
+      sendPacket(SDEP_CMDTYPE_BLE_UARTTX, buf, (uint8_t) len, size ? 1 : 0);
+      buf += len;
     }
+
+    getResponse();
 
     return size;
   }
@@ -389,11 +382,9 @@ int Adafruit_BluefruitLE_SPI::available(void)
   {
     // DATA Mode: query for BLE UART data
     sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
-
     // Waiting to get response from Bluefruit
     getResponse();
-
-    return m_rx_fifo.count();
+   return m_rx_fifo.count();
   }else
   {
     return (digitalRead(m_irq_pin));
@@ -493,8 +484,15 @@ void Adafruit_BluefruitLE_SPI::flush(void)
 /******************************************************************************/
 bool Adafruit_BluefruitLE_SPI::getResponse(void)
 {
+  /*
+  Serial.println(" +++++  getResponse");
   // Blocking wait until IRQ is asserted
-  while ( !digitalRead(m_irq_pin) ) {}
+  while ( !digitalRead(m_irq_pin) ) {
+  
+//      Serial.printf("wait on IRQ pin: %d\r\n", millis());
+
+  }
+//  Serial.printf("  IRQ pin avail: %d, remaining: %d\r\n", millis(), m_rx_fifo.remaining());
 
   // There is data from Bluefruit & enough room in the fifo
   while ( digitalRead(m_irq_pin) &&
@@ -504,12 +502,30 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
     sdepMsgResponse_t msg_response;
     memclr(&msg_response, sizeof(sdepMsgResponse_t));
 
-    if ( !getPacket(&msg_response) ) return false;
+    Serial.println("  LOOP  getResponse");
+    if ( !getPacket(&msg_response) ) {
+      Serial.println("NO PACKET????");
+      Serial.println(" +++++  getResponse RETURN");
+      return false;
+    }
+//    Serial.println(" .. GOT packet");
 
     // Write to fifo
     if ( msg_response.header.length > 0)
     {
-      m_rx_fifo.write_n(msg_response.payload, msg_response.header.length);
+      uint16_t amountWritten = m_rx_fifo.write_n(msg_response.payload, msg_response.header.length);
+      if (amountWritten != msg_response.header.length) {
+          Serial.println("ERROR!! READING/WRITTING DATA...!! --- < i don't hit this > ----------------------------------------- ");
+      }
+//      if (msg_response.header.more_data)
+      {
+        for (int i = 0; i < msg_response.header.length; i++) {
+          Serial.printf("%c", msg_response.payload[i]);
+        }
+        
+        Serial.printf(" <<- wrote %d, moreData %d\r\n", amountWritten, msg_response.header.more_data);
+        
+      }
     }
 
     // No more packet data
@@ -517,10 +533,168 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
 
     // It takes a bit since all Data received to IRQ to get LOW
     // May need to delay a bit for it to be stable before the next try
-    // delayMicroseconds(SPI_DEFAULT_DELAY_US);
+    TimeoutTimer tt(_timeout);
+    while (!digitalRead(m_irq_pin) && !tt.expired()) {
+      delayMicroseconds(SPI_DEFAULT_DELAY_US);
+    }
+    if (!digitalRead(m_irq_pin)) {
+      Serial.println("                irq not ready!!!");
+    }
+  //  Serial.printf("wait on inside for more data: %d\r\n", millis());
   }
+  Serial.println(" +++++  getResponse DONE");
 
   return true;
+   */
+  
+  
+  bool result = false;
+  
+  // Blocking wait until IRQ is asserted
+  TimeoutTimer tt(_timeout);
+  while (!digitalRead(m_irq_pin)) {
+//    Serial.printf("wait on IRQ pin: %d\r\n", millis());
+    if (tt.expired()) {
+      break;
+    }
+  }
+  
+//  Serial.println("--------------- START getResponse");
+  SPI.beginTransaction(bluefruitSPI);
+  SPI_CS_ENABLE();
+  
+  bool isDone = false;
+  while (!isDone) {
+    if (m_rx_fifo.remaining() < SDEP_MAX_PACKETSIZE) {
+      // not enough space to read the next packet
+      break;
+    }
+
+    sdepMsgResponse_t msg_response;
+    memclr(&msg_response, sizeof(sdepMsgResponse_t));
+
+    // Now read the data until we are done.
+    msg_response.header.more_data = 1; // Gets us unto the loop (this part of the response was not filled in yet! only the msg_type)
+    
+    while (msg_response.header.more_data == 1) {
+      if (m_rx_fifo.remaining() < SDEP_MAX_PACKETSIZE) {
+        Serial.println("buffer full, so stopping, even though we have more data!");
+        break;
+      }
+      
+      // Read the message type
+      do {
+        msg_response.header.msg_type = SPI.transfer(0xff);
+        Serial.printf("%x ", msg_response.header.msg_type);
+        if (msg_response.header.msg_type == SPI_IGNORED_BYTE) {
+          // give it a chance...
+          SPI_CS_DISABLE();
+          delayMicroseconds(50); // corbin
+          SPI_CS_ENABLE();
+        } else if (msg_response.header.msg_type == SPI_OVERREAD_BYTE) {
+          Serial.printf("over read byte!\r\n");
+          SPI_CS_DISABLE();
+          // wait for the clock to be enabled..
+          TimeoutTimer tt(_timeout);
+          while (!digitalRead(m_irq_pin)) {
+            Serial.printf("wait on IRQ pin: %d\r\n", millis());
+            if (tt.expired()) {
+              break;
+            }
+          }
+          if (!digitalRead(m_irq_pin)) {
+            Serial.println("data not ready!");
+          }
+          SPI_CS_ENABLE();
+        }
+      }  while (msg_response.header.msg_type == SPI_IGNORED_BYTE || msg_response.header.msg_type == SPI_OVERREAD_BYTE);
+      
+      tt.restart();
+//      Serial.printf(" header: %x\r\n", msg_response.header.msg_type);
+
+      // This check shouldn't be done..it just throws away information when the header isn't right!
+      if (msg_response.header.msg_type != SDEP_MSGTYPE_RESPONSE && msg_response.header.msg_type != SDEP_MSGTYPE_ERROR && msg_response.header.msg_type != SDEP_MSGTYPE_ALERT) {
+        Serial.printf(" ERROR READING msg type!: %x\r\n", msg_response.header.msg_type);
+        break;
+      }
+    
+//      if (tt.expired()) {
+//        Serial.println("timer expired! too much data?");
+//        break;
+//      }
+
+      // reset the header with all FF's to send it off. Oh this is ugly..
+      memset( (&msg_response.header.msg_type)+1, 0xff, sizeof(sdepMsgHeader_t) - 1);
+      SPI.transfer((&msg_response.header.msg_type)+1, sizeof(sdepMsgHeader_t) - 1);
+      
+      
+      // Error Message Response
+      if ( msg_response.header.msg_type == SDEP_MSGTYPE_ERROR ) {
+        Serial.println("SDEP_MSGTYPE_ERROR");
+        break;
+      }
+      
+      // Command is 16-bit at odd address, may have alignment issue with 32-bit chip
+      uint16_t cmd_id = word(msg_response.header.cmd_id_high, msg_response.header.cmd_id_low);
+      
+      // Invalid command
+      if (!(cmd_id == SDEP_CMDTYPE_AT_WRAPPER ||
+            cmd_id == SDEP_CMDTYPE_BLE_UARTTX ||
+            cmd_id == SDEP_CMDTYPE_BLE_UARTRX) )
+      {
+        Serial.printf("INVALID command %x\r\n", cmd_id);
+        break;
+      }
+      
+      // Invalid length
+      if (msg_response.header.length > SDEP_MAX_PACKETSIZE) {
+        Serial.println("INVALID LENGTH");
+        break;
+      } else {
+//        Serial.printf("reading length %d\r\n", msg_response.header.length);
+      }
+      
+      // read payload
+      memset(msg_response.payload, 0xff, msg_response.header.length);
+      SPI.transfer(msg_response.payload, msg_response.header.length);
+      
+      // Fill in our buffer (I could read directly into the buffer)..
+      if ( msg_response.header.length > 0)
+      {
+        uint16_t amountWritten = m_rx_fifo.write_n(msg_response.payload, msg_response.header.length);
+        if (amountWritten != msg_response.header.length) {
+          Serial.println("ERROR!! READING/WRITTING DATA...!! --- < i don't hit this > ----------------------------------------- ");
+        }
+        //      if (msg_response.header.more_data)
+        {
+//          for (int i = 0; i < msg_response.header.length; i++) {
+//            Serial.printf("%c", msg_response.payload[i]);
+//          }
+          
+//          Serial.printf(" <<- wrote %d, moreData %d\r\n", amountWritten, msg_response.header.more_data);
+          
+        }
+      } else {
+        Serial.println("NO data sent back??");
+      }
+      
+      
+      // If it has more...we read more!
+      if (msg_response.header.more_data) {
+//        Serial.println(".. more data!");
+      }
+    }
+    
+    isDone = true;
+  }
+  SPI_CS_DISABLE();
+  SPI.endTransaction();
+//  Serial.printf(" ---------------- END getResponse LOOP.\r\n");
+  
+  
+  
+  return result;
+  
 }
 
 /******************************************************************************/
@@ -538,63 +712,100 @@ bool Adafruit_BluefruitLE_SPI::getPacket(sdepMsgResponse_t* p_response)
 {
   sdepMsgHeader_t* p_header = &p_response->header;
 
-  if (m_sck_pin == -1)
-    SPI.beginTransaction(bluefruitSPI);
+  SPI.beginTransaction(bluefruitSPI);
+  
+  Serial.println("-------------- getpacket");
   SPI_CS_ENABLE();
 
   TimeoutTimer tt(_timeout);
 
   // Bluefruit may not be ready
-  while ( ( (p_header->msg_type = spixfer(0xff)) == SPI_IGNORED_BYTE ) && !tt.expired() )
-  {
-    // Disable & Re-enable CS with a bit of delay for Bluefruit to ready itself
-    SPI_CS_DISABLE();
-    delayMicroseconds(SPI_DEFAULT_DELAY_US);
-    SPI_CS_ENABLE();
-  }
+  uint8_t byte;
+  do {
+    byte = SPI.transfer(0xff);
+    Serial.printf("%x", byte);
+  }  while (byte == SPI_IGNORED_BYTE && !tt.expired());
+  
+  p_header->msg_type = byte;
+  Serial.printf(" got first byte: %x\r\n", byte);
 
-  bool result=false;
+
+//  while ( ( (p_header->msg_type = SPI.transfer(0xff)) == SPI_IGNORED_BYTE ) && !tt.expired() )
+//  {
+//    // Disable & Re-enable CS with a bit of delay for Bluefruit to ready itself
+//    SPI_CS_DISABLE();
+//    Serial.printf("delay: %d, got %d\r\n", millis(), p_header->msg_type);
+//    delayMicroseconds(SPI_DEFAULT_DELAY_US);
+//    SPI_CS_ENABLE();
+//  }
+
+  bool result = false;
 
   // Not a loop, just a way to avoid goto with error handling
   do
   {
-    if ( tt.expired() ) break;
+    Serial.printf(" do getpacket: %x\r\n", byte);
+///^^ this slows something down to make it work..
+    if ( tt.expired() ) {
+      Serial.println("EXPIRED A");
+      break;
+    }
 
     // Look for the header
+    // whoa, this is throwing bytes away!!
     while ( p_header->msg_type != SDEP_MSGTYPE_RESPONSE && p_header->msg_type != SDEP_MSGTYPE_ERROR )
     {
-      p_header->msg_type = spixfer(0xff);
+      uint8_t before = p_header->msg_type;
+      p_header->msg_type = SPI.transfer(0xff);
+      Serial.printf("wait on header; post transfer: %x, value before: %x byte at start: %x\r\n", p_header->msg_type, before, byte);
+      if ( tt.expired() ) {
+        Serial.println("EXPIRED");
+        break;
+      }
     }
+    
+    Serial.println(" got header.");
+
     memset( (&p_header->msg_type)+1, 0xff, sizeof(sdepMsgHeader_t) - 1);
-    spixfer((&p_header->msg_type)+1, sizeof(sdepMsgHeader_t) - 1);
+    SPI.transfer((&p_header->msg_type)+1, sizeof(sdepMsgHeader_t) - 1);
 
     // Command is 16-bit at odd address, may have alignment issue with 32-bit chip
     uint16_t cmd_id = word(p_header->cmd_id_high, p_header->cmd_id_low);
 
     // Error Message Response
-    if ( p_header->msg_type == SDEP_MSGTYPE_ERROR ) break;
+    if ( p_header->msg_type == SDEP_MSGTYPE_ERROR ) {
+      Serial.println("SDEP_MSGTYPE_ERROR");
+      break;
+    }
 
     // Invalid command
     if (!(cmd_id == SDEP_CMDTYPE_AT_WRAPPER ||
           cmd_id == SDEP_CMDTYPE_BLE_UARTTX ||
           cmd_id == SDEP_CMDTYPE_BLE_UARTRX) )
     {
+      Serial.println("INVALID command");
       break;
     }
 
     // Invalid length
-    if(p_header->length > SDEP_MAX_PACKETSIZE) break;
+    if (p_header->length > SDEP_MAX_PACKETSIZE) {
+      Serial.println("INVALID LENGTH");
+      break;
+    } else {
+      Serial.printf("reading length %d\r\n", p_header->length);
+    }
 
     // read payload
     memset(p_response->payload, 0xff, p_header->length);
-    spixfer(p_response->payload, p_header->length);
+    SPI.transfer(p_response->payload, p_header->length);
 
     result = true;
-  }while(0);
+    break; // corbin?? why did we never have a break here? how could this ever work?
+  } while(0);
 
   SPI_CS_DISABLE();
-  if (m_sck_pin == -1)
-    SPI.endTransaction();
+  SPI.endTransaction();
+  Serial.printf(" ---------------- get packet done.\r\n");
 
   return result;
 }

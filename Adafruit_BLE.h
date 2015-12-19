@@ -38,7 +38,7 @@
 #define _Adafruit_BLE_H_
 
 #include <stdint.h>
-#include <Arduino.h>
+#include "Arduino.h"
 #include "utility/sdep.h"
 #include "utility/errors.h"
 #include "utility/TimeoutTimer.h"
@@ -51,7 +51,7 @@
 
 #define BLUEFRUIT_MODE_COMMAND   HIGH
 #define BLUEFRUIT_MODE_DATA      LOW
-#define BLE_DEFAULT_TIMEOUT      250
+#define BLE_DEFAULT_TIMEOUT      500 // corbin, was 250, but seems too low
 #define BLE_BUFSIZE              4*SDEP_MAX_PACKETSIZE
 
 #define ASSERT(condition, err)    if ( !(condition) ) return err;
@@ -86,9 +86,9 @@ class Adafruit_BLE : public Stream
     bool isTransportSwUart (void) { return _physical_transport == BLUEFRUIT_TRANSPORT_SWUART; }
     bool isTransportUart   (void) { return isTransportHwUart() || isTransportSwUart();        }
 
-    bool isTransportHwSpi  (void) { return _physical_transport == BLUEFRUIT_TRANSPORT_HWSPI;  }
-    bool isTransportSwSpi  (void) { return _physical_transport == BLUEFRUIT_TRANSPORT_SWSPI;  }
-    bool isTransportSpi    (void) { return isTransportHwSpi() || isTransportSwSpi();          }
+//    bool isTransportHwSpi  (void) { return _physical_transport == BLUEFRUIT_TRANSPORT_HWSPI;  }
+//    bool isTransportSwSpi  (void) { return _physical_transport == BLUEFRUIT_TRANSPORT_SWSPI;  }
+//    bool isTransportSpi    (void) { return isTransportHwSpi() || isTransportSwSpi();          }
 
     // Functions implemented in this base class
     bool reset(void);
