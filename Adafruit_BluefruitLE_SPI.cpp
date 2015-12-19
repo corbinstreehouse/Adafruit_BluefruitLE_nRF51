@@ -236,7 +236,7 @@ bool Adafruit_BluefruitLE_SPI::sendInitializePattern(void)
 /******************************************************************************/
 bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, uint8_t count, uint8_t more_data)
 {
-  Serial.println("\r\n [sendPacket]");
+//  Serial.println("\r\n [sendPacket]");
  // flush old response before sending the new command
   if (more_data == 0) flush();
 
@@ -585,25 +585,25 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
       // Read the message type
       do {
         msg_response.header.msg_type = SPI.transfer(0xff);
-        Serial.printf("%x ", msg_response.header.msg_type);
+//        Serial.printf("%x ", msg_response.header.msg_type);
         if (msg_response.header.msg_type == SPI_IGNORED_BYTE) {
           // give it a chance...
           SPI_CS_DISABLE();
           delayMicroseconds(50); // corbin
           SPI_CS_ENABLE();
         } else if (msg_response.header.msg_type == SPI_OVERREAD_BYTE) {
-          Serial.printf("over read byte!\r\n");
+//          Serial.printf("over read byte!\r\n");
           SPI_CS_DISABLE();
           // wait for the clock to be enabled..
           TimeoutTimer tt(_timeout);
           while (!digitalRead(m_irq_pin)) {
-            Serial.printf("wait on IRQ pin: %d\r\n", millis());
+//            Serial.printf("wait on IRQ pin: %d\r\n", millis());
             if (tt.expired()) {
               break;
             }
           }
           if (!digitalRead(m_irq_pin)) {
-            Serial.println("data not ready!");
+//            Serial.println("data not ready!");
           }
           SPI_CS_ENABLE();
         }
