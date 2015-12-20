@@ -685,7 +685,7 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
       }
     }
     
-    isDone = true;
+    isDone = true; // or break
   }
   SPI_CS_DISABLE();
   SPI.endTransaction();
