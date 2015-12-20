@@ -675,7 +675,7 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
           
         }
       } else {
-        Serial.println("NO data sent back??");
+//        Serial.println("NO data sent back??"); // TODO: find out why i hit this..
       }
       
       
