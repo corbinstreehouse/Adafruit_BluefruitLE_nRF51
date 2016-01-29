@@ -64,7 +64,7 @@ SPISettings bluefruitSPI(4000000, MSBFIRST, SPI_MODE0);
 */
 /******************************************************************************/
 Adafruit_BluefruitLE_SPI::Adafruit_BluefruitLE_SPI(int8_t csPin, int8_t irqPin, int8_t rstPin) :
-    m_rx_fifo(m_rx_buffer, sizeof(m_rx_buffer), 1, true), m_hasMoreUARTData(false0)
+    m_rx_fifo(m_rx_buffer, sizeof(m_rx_buffer), 1, true), m_hasMoreUARTData(false)
 {
   _physical_transport = BLUEFRUIT_TRANSPORT_HWSPI;
 
