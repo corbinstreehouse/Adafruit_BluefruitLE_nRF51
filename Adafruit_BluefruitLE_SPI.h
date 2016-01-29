@@ -67,6 +67,7 @@ class Adafruit_BluefruitLE_SPI : public Adafruit_BLE
     // RX
     uint8_t         m_rx_buffer[BLE_BUFSIZE];
     Adafruit_FIFO   m_rx_fifo;
+    bool m_hasMoreUARTData;
 
     // Low level transportation I/O functions
     bool    sendInitializePattern(void);

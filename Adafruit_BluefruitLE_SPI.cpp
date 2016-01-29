@@ -64,7 +64,7 @@ SPISettings bluefruitSPI(4000000, MSBFIRST, SPI_MODE0);
 */
 /******************************************************************************/
 Adafruit_BluefruitLE_SPI::Adafruit_BluefruitLE_SPI(int8_t csPin, int8_t irqPin, int8_t rstPin) :
-    m_rx_fifo(m_rx_buffer, sizeof(m_rx_buffer), 1, true)
+    m_rx_fifo(m_rx_buffer, sizeof(m_rx_buffer), 1, true), m_hasMoreUARTData(false0)
 {
   _physical_transport = BLUEFRUIT_TRANSPORT_HWSPI;
 
@@ -381,7 +381,12 @@ int Adafruit_BluefruitLE_SPI::available(void)
   if ( _mode == BLUEFRUIT_MODE_DATA )
   {
     // DATA Mode: query for BLE UART data
-    sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
+    if (!m_hasMoreUARTData) {
+      // We might already be reading the response.....
+      sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
+    } else {
+      Serial.println("Not requesting more data in available because m_hasMoreUARTData is set..)");
+    }
     // Waiting to get response from Bluefruit
     getResponse();
    return m_rx_fifo.count();
@@ -410,8 +415,13 @@ int Adafruit_BluefruitLE_SPI::read(void)
 
   if ( _mode == BLUEFRUIT_MODE_DATA )
   {
-    // DATA Mode: query for BLE UART data
-    sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
+    if (!m_hasMoreUARTData) {
+      // DATA Mode: query for BLE UART data
+      sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
+    } else {
+      Serial.println("XX Not requesting more data in available because m_hasMoreUARTData is set..)");
+
+    }
 
     // Waiting to get response from Bluefruit
     getResponse();
@@ -482,6 +492,7 @@ void Adafruit_BluefruitLE_SPI::flush(void)
       - false : if failed
 */
 /******************************************************************************/
+
 bool Adafruit_BluefruitLE_SPI::getResponse(void)
 {
   /*
@@ -574,11 +585,12 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
     memclr(&msg_response, sizeof(sdepMsgResponse_t));
 
     // Now read the data until we are done.
-    msg_response.header.more_data = 1; // Gets us unto the loop (this part of the response was not filled in yet! only the msg_type)
+    msg_response.header.more_data = 1; // Gets us into the loop (this part of the response was not filled in yet! only the msg_type)
     
     while (msg_response.header.more_data == 1) {
       if (m_rx_fifo.remaining() < SDEP_MAX_PACKETSIZE) {
         Serial.println("buffer full, so stopping, even though we have more data!");
+        
         break;
       }
       
@@ -684,9 +696,16 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
 //        Serial.println(".. more data!");
       }
     }
-    
+  
+    m_hasMoreUARTData = msg_response.header.more_data; // We might call again on the next call
+    if (m_hasMoreUARTData) {
+      Serial.println("m_hasMoreUARTData left set..");
+    }
+
     isDone = true; // or break
   }
+  
+  
   SPI_CS_DISABLE();
   SPI.endTransaction();
 //  Serial.printf(" ---------------- END getResponse LOOP.\r\n");
