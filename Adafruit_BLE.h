@@ -51,7 +51,7 @@
 
 #define BLUEFRUIT_MODE_COMMAND   HIGH
 #define BLUEFRUIT_MODE_DATA      LOW
-#define BLE_DEFAULT_TIMEOUT      500 // corbin, was 250, but seems too low
+#define BLE_DEFAULT_TIMEOUT      250
 #define BLE_BUFSIZE              4*SDEP_MAX_PACKETSIZE
 
 #define ASSERT(condition, err)    if ( !(condition) ) return err;
