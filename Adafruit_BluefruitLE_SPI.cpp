@@ -385,7 +385,7 @@ int Adafruit_BluefruitLE_SPI::available(void)
       // We might already be reading the response.....
       sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
     } else {
-      Serial.println("Not requesting more data in available because m_hasMoreUARTData is set..)");
+//      Serial.println("Not requesting more data in available because m_hasMoreUARTData is set..)");
     }
     // Waiting to get response from Bluefruit
     getResponse();
@@ -419,7 +419,7 @@ int Adafruit_BluefruitLE_SPI::read(void)
       // DATA Mode: query for BLE UART data
       sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
     } else {
-      Serial.println("XX Not requesting more data in available because m_hasMoreUARTData is set..)");
+//      Serial.println("XX Not requesting more data in available because m_hasMoreUARTData is set..)");
 
     }
 
@@ -699,7 +699,7 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
   
     m_hasMoreUARTData = msg_response.header.more_data; // We might call again on the next call
     if (m_hasMoreUARTData) {
-      Serial.println("m_hasMoreUARTData left set..");
+//      Serial.println("m_hasMoreUARTData left set..");
     }
 
     isDone = true; // or break
