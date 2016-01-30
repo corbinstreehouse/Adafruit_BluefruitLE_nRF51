@@ -82,7 +82,7 @@ bool Adafruit_BLE::reset(void)
   }
 
   // Bluefruit need 1 second to reboot
-  delay(1000);
+//  delay(1000);
 
   // flush all left over
   flush();

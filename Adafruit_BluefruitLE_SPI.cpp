@@ -162,7 +162,7 @@ bool Adafruit_BluefruitLE_SPI::begin(boolean v)
   }
 
   // Bluefruit takes 1 second to reboot
-  delay(1000); // ugh!
+ // delay(1000); // ugh!
 
   return isOK;
 }
