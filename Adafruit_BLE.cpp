@@ -39,6 +39,8 @@
   #define min(a,b) ((a) < (b) ? (a) : (b))
 #endif
 
+#define ASSERT(condition, err)    if ( !(condition) ) return err;
+
 /******************************************************************************/
 /*!
     @brief  Constructor
