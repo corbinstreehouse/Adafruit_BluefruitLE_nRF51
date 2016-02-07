@@ -338,23 +338,26 @@ size_t Adafruit_BluefruitLE_SPI::write(uint8_t c)
 
 /******************************************************************************/
 /*!
-
+corbin...this was returning 0, when it should have returned the amount written!
 */
 /******************************************************************************/
 size_t Adafruit_BluefruitLE_SPI::write(const uint8_t *buf, size_t size)
 {
   if ( _mode == BLUEFRUIT_MODE_DATA )
   {
-    while(size)
-    {
-      size_t len = min(size, SDEP_MAX_PACKETSIZE);
-      size -= len;
+    if (size > 0) {
+      size_t amountLeft = size;
+      while(amountLeft)
+      {
+        size_t len = min(amountLeft, SDEP_MAX_PACKETSIZE);
+        amountLeft -= len;
 
-      sendPacket(SDEP_CMDTYPE_BLE_UARTTX, buf, (uint8_t) len, size ? 1 : 0);
-      buf += len;
+        sendPacket(SDEP_CMDTYPE_BLE_UARTTX, buf, (uint8_t) len, amountLeft ? 1 : 0);
+        buf += len;
+      }
+
+      getResponse();
     }
-
-    getResponse();
 
     return size;
   }
