@@ -214,6 +214,10 @@ bool Adafruit_BluefruitLE_SPI::setMode(uint8_t new_mode)
   return true;
 }
 
+uint8_t Adafruit_BluefruitLE_SPI::getMode() {
+  return _mode;
+}
+
 /******************************************************************************/
 /*!
     @brief Send initialize pattern to Bluefruit LE to force a reset. This pattern

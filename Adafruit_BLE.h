@@ -98,6 +98,7 @@ class Adafruit_BLE : public Stream
     bool isVersionAtLeast(char * versionString);
 
     virtual bool setMode(uint8_t mode) = 0;
+    virtual uint8_t getMode() = 0;
 
     bool sendCommandCheckOK(const __FlashStringHelper *cmd);
     bool sendCommandCheckOK(const char cmd[]);

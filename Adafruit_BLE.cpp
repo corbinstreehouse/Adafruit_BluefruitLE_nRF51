@@ -135,7 +135,14 @@ bool Adafruit_BLE::echo(bool enable)
 bool Adafruit_BLE::isConnected(void)
 {
   int32_t connected = 0;
+  // Make sure we are in command mode
+  uint8_t oldMode = getMode();
+  if (getMode() != BLUEFRUIT_MODE_COMMAND) {
+    setMode(BLUEFRUIT_MODE_COMMAND);
+  }
   sendCommandWithIntReply(F("AT+GAPGETCONN"), &connected);
+  setMode(oldMode);
+  
   return connected;
 }
 
