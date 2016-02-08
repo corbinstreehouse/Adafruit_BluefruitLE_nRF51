@@ -52,7 +52,7 @@
 #define BLUEFRUIT_MODE_COMMAND   HIGH
 #define BLUEFRUIT_MODE_DATA      LOW
 #define BLE_DEFAULT_TIMEOUT      250
-#define BLE_BUFSIZE              4*SDEP_MAX_PACKETSIZE
+#define BLE_BUFSIZE              256 // originally 64, which is too small
 
 class Adafruit_BLE : public Stream
 {
