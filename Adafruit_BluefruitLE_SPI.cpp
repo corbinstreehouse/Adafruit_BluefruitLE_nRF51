@@ -585,6 +585,7 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
   while (!isDone) {
     if (m_rx_fifo.remaining() < SDEP_MAX_PACKETSIZE) {
       // not enough space to read the next packet
+      // NOTE: this will mess things up...
       break;
     }
 
@@ -593,11 +594,16 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
 
     // Now read the data until we are done.
     msg_response.header.more_data = 1; // Gets us into the loop (this part of the response was not filled in yet! only the msg_type)
+    m_hasMoreUARTData = true;
     
     while (msg_response.header.more_data == 1) {
       if (m_rx_fifo.remaining() < SDEP_MAX_PACKETSIZE) {
-        Serial.println("buffer full, so stopping, even though we have more data!");
         
+        // corbin!! this represents a real problem; the client *has* to do more reads until UART tx has finished..otherwise the next call will be a:
+        // sendPacket(SDEP_CMDTYPE_BLE_UARTRX, NULL, 0, 0);
+        // Which then expects the response...but we are expecting to already read a response from SPI...and will just got the last data transferred, regardless of mode (command vs UART/DATA), which makes it really hard to use both Command mode with regular characteristics and data mode with UART for performance. Anytime I set m_hasMoreUARTData I'm leaving stuff in a potential bad state...
+        // I'll work around this by increasing the buffer to 256, and not pounding on it from the other side
+        Serial.println("XXXXXXXXXXX *********  buffer full, so stopping, even though we have more data!");
         break;
       }
       
