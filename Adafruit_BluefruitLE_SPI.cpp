@@ -259,7 +259,7 @@ bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, 
   // Starting SPI transaction
   SPI.beginTransaction(bluefruitSPI);
 
-  SPI_CS_ENABLE_W_DELAY();
+  SPI_CS_ENABLE(); // no delay..we do delays if it can't send..
 
   TimeoutTimer tt(_timeout);
 
@@ -585,7 +585,7 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
   
 //  Serial.println("--------------- START getResponse");
   SPI.beginTransaction(bluefruitSPI);
-  SPI_CS_ENABLE_W_DELAY();
+  SPI_CS_ENABLE(); // no delay!
   
   bool isDone = false;
   while (!isDone) {
