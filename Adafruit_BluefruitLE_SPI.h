@@ -72,7 +72,6 @@ class Adafruit_BluefruitLE_SPI : public Adafruit_BLE
     // Low level transportation I/O functions
     bool    sendInitializePattern(void);
     bool    sendPacket(uint16_t command, const uint8_t* buffer, uint8_t count, uint8_t more_data);
-    bool    getPacket(sdepMsgResponse_t* p_response);
 
     bool    getResponse(void);
     void    simulateSwitchMode(void);
