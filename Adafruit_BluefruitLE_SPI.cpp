@@ -44,12 +44,10 @@
 // according to the "spec" there should be a 100ms delay after the enagble!
 // NOTE: removing the delayM means I have to remove the other location that had an extra delay
 #define SPI_CS_ENABLE()           digitalWrite(m_cs_pin, LOW)
-#define SPI_CS_ENABLE_W_DELAY()           digitalWrite(m_cs_pin, LOW); delayMicroseconds(100)
 #define SPI_CS_DISABLE()          digitalWrite(m_cs_pin, HIGH)
 
 
-
-SPISettings bluefruitSPI(4000000, MSBFIRST, SPI_MODE0);
+SPISettings bluefruitSPI(1200000, MSBFIRST, SPI_MODE0); // Works still at 8Mhz and 12Mhz. default was 4Mhz. Breaks at 16Mhz for sure..
 
 
 /******************************************************************************/
@@ -273,7 +271,7 @@ bool Adafruit_BluefruitLE_SPI::sendPacket(uint16_t command, const uint8_t* buf, 
     SPI_CS_DISABLE();
 //    delayMicroseconds(SPI_DEFAULT_DELAY_US); // delay now built into enable! if I remove the delay in enable..then i have to fix this
     SPI_CS_ENABLE(); // no delay
-    delayMicroseconds(1); // smaller delay than 100us that was being used before...
+    delayMicroseconds(10); // smaller delay than 100us that was being used before... (was 50)
     // try again
     res = spixfer(msgCmd.header.msg_type);
   }
@@ -579,6 +577,7 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
   while (!digitalRead(m_irq_pin)) {
 //    Serial.printf("wait on IRQ pin: %d\r\n", millis());
     if (tt.expired()) {
+      if (_verbose) Serial.printf(" irq timer expired..\r\n");
       break;
     }
   }
@@ -625,13 +624,14 @@ bool Adafruit_BluefruitLE_SPI::getResponse(void)
           SPI_CS_ENABLE();
           delayMicroseconds(10); // corbin..have a little delay instead of 100ms
         } else if (msg_response.header.msg_type == SPI_OVERREAD_BYTE) {
-//          Serial.printf("over read byte!\r\n");
+//          if (_verbose) Serial.print(" SPI_OVERREAD_BYTE ");
           SPI_CS_DISABLE();
           // wait for the clock to be enabled..
           TimeoutTimer tt(_timeout);
           while (!digitalRead(m_irq_pin)) {
 //            Serial.printf("wait on IRQ pin: %d\r\n", millis());
             if (tt.expired()) {
+              if (_verbose) Serial.print(" ** IRQ TIMER expired ** ");
               break;
             }
           }
